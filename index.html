@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>S3 Uploader</title>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 480px;
+      margin: 40px auto;
+    }
+    h1 {
+      font-size: 1.4rem;
+    }
+    .card {
+      border: 1px solid #ccc;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 12px;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>S3 Uploader</h1>
+
+  <div class="card">
+    <p>Upload 1 photo at a time to S3</p>
+    <input type="file" id="fileInput" accept="image/*"><br><br>
+    <button id="uploadBtn">Upload</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput')
+    const uploadBtn = document.getElementById('uploadBtn')
+    const statusDiv = document.getElementById('status')
+
+    async function uploadFile() {
+      const file = fileInput.files[0]
+      if (!file) {
+        statusDiv.textContent = "No file selected."
+        return
+      }
+
+      statusDiv.textContent = "Requesting upload URL..."
+
+      try {
+        // ask backend for a presigned url
+        const res = await fetch('/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || "application/octet-stream"
+          })
+        })
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || "Couldn't get presigned URL")
+        }
+
+        const { url, key } = await res.json()
+
+        statusDiv.textContent = "Uploading..."
+
+        // upload directly to S3
+        const s3Res = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || "application/octet-stream"
+          },
+          body: file
+        })
+
+        if (!s3Res.ok) {
+          throw new Error("Upload failed: " + s3Res.status)
+        }
+
+        statusDiv.textContent = "Done: " + key
+        fileInput.value = ""
+
+      } catch (e) {
+        console.error(e)
+        statusDiv.textContent = e.message
+      }
+    }
+
+    uploadBtn.addEventListener('click', uploadFile)
+  </script>
+
+</body>
+</html>
