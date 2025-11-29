@@ -38,12 +38,16 @@
     <p>Upload 1 photo at a time to S3</p>
     <input type="file" id="fileInput" accept=""><br><br>
     <button id="uploadBtn">Upload</button>
+        <button id="uploadLocalBtn">Upload LOCALLY</button>
+
     <div id="status"></div>
   </div>
 
   <script>
     const fileInput = document.getElementById('fileInput')
     const uploadBtn = document.getElementById('uploadBtn')
+    const uploadLocalBtn = document.getElementById('uploadLocalBtn')
+
     const statusDiv = document.getElementById('status')
 
     async function uploadFile() {
@@ -97,7 +101,46 @@
       }
     }
 
+
+
+async function uploadLocalFile() {
+  const file = fileInput.files[0]
+  if (!file) {
+    statusDiv.textContent = "No file selected."
+    return
+  }
+
+  statusDiv.textContent = "Uploading to pi"
+
+  const fd = new FormData()
+  fd.append("file", file)
+
+  try {
+    const resp = await fetch("/upload_local", {
+      method: "POST",
+      body: fd
+    })
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}))
+      throw new Error(err.error || "upload failed ")
+    }
+
+    const out = await resp.json()
+    statusDiv.textContent = "Saved to: " + out.saved_to
+
+    fileInput.value = ""
+
+  } catch (err) {
+    console.log(err)
+    statusDiv.textContent = err.message
+  }
+}
+
+    
     uploadBtn.addEventListener('click', uploadFile)
+    uploadLocalBtn.addEventListener('click', uploadLocalFile)
+
   </script>
 
 </body>
